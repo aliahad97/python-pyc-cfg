@@ -1,0 +1,22 @@
+  2           0 SETUP_FINALLY            4 (to 6)
+
+  3           2 POP_BLOCK
+              4 JUMP_FORWARD            28 (to 34)
+
+  4     >>    6 DUP_TOP
+              8 LOAD_NAME                0 (Exception)
+             10 COMPARE_OP              10 (exception match)
+             12 POP_JUMP_IF_FALSE       32
+             14 POP_TOP
+             16 POP_TOP
+             18 POP_TOP
+
+  5          20 LOAD_NAME                1 (print)
+             22 LOAD_CONST               0 ('Error: unable to send email')
+             24 CALL_FUNCTION            1
+             26 POP_TOP
+             28 POP_EXCEPT
+             30 JUMP_FORWARD             2 (to 34)
+        >>   32 END_FINALLY
+        >>   34 LOAD_CONST               1 (None)
+             36 RETURN_VALUE

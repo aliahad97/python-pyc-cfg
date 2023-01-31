@@ -1,0 +1,1 @@
+python ../scripts/compile_py.py initial.py
