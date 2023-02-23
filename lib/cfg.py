@@ -76,6 +76,9 @@ class CFGNode:
         return self.line_no
 
 class CFG:
+                
+        
+
     def __init__(self, codeobject, target_offset=-1, source_code=None):
         def lstadd(hmap, key, val):
             if key not in hmap:
@@ -259,6 +262,35 @@ class CFG:
                 G.add_edge(cnode.bid, cn.bid)
         return G
 
+    def dfs(self, func):
+        visited = {}
+        stack = []
+        stack.append(0) #assumes there will always be a block wit nid 0
+        while len(stack) > 0:
+            cnode_nid = stack.pop(-1)
+            visited[cnode_nid] = 1
+            cnode = self.opcodes[cnode_nid]
+            func(cnode_nid)
+            for node in cnode.children:
+                if visited.get(node.nid) == None:
+                    stack.append(node.nid)
+        return
+
+    def bfs(self, func):
+        visited = {}
+        queue = []
+        queue.append(0) #assumes there will always be a block wit nid 0
+        while len(queue) > 0:
+            cnode_nid = queue.pop(0)
+            visited[cnode_nid] = 1
+            cnode = self.opcodes[cnode_nid]
+            func(cnode_nid)
+            for node in cnode.children:
+                if visited.get(node.nid) == None:
+                    queue.append(node.nid)
+        return
+
+
 def analyze_cfg(cfg):
     v = cfg
     print('Function name:', v.name)
@@ -277,6 +309,7 @@ def analyze_cfg(cfg):
             )
             # print(cnode.i.opcode, '')
     v.to_graph().draw('output/cfg/'+ v.name + '.out.png', prog='dot')
+    
 
 def draw_graph(cfg, f_name=None):
     if f_name == None:
@@ -299,4 +332,5 @@ def get_edges_of_node(cnode):
             edges_v1.append("{}:{}".format(cnode.i.opname if len(cnode.ins) == 0 else cnode.ins[-1].i.opname, cn.i.opname))
     edges_v1 = [replace_common_strings(i) for i in edges_v1]
     return edges_v1
+
 
