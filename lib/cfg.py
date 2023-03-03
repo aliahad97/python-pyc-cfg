@@ -75,6 +75,57 @@ class CFGNode:
     def get_line_no(self):
         return self.line_no
 
+def node_to_string(node1):
+    '''helper function used by CFG_to_hash_graph() and is_subgraph()'''
+    node_str = ""
+    node_str += node1.i.opname
+    # if node1.parent: print(f"NODE ABOVE'S PARENTS{[p.i.opname for p in node1.parent]}")
+    for ins in node1.ins:
+        node_str += ins.i.opname
+    return node_str
+
+def CFG_to_hash_graph(cfg1):
+    '''helper function used by is_subgraph()'''
+    nodes = []; edges = []
+    #use iterative DFS to make a list of hashes of nodes and edges
+    visited = {}
+    stack = []
+    stack.append(0) #assumes there will always be a block wit nid 0
+    while len(stack) > 0:
+        cnode_nid = stack.pop(-1)
+        visited[cnode_nid] = 1
+        cnode = cfg1.opcodes[cnode_nid]
+        cnode_str_hash = hash(node_to_string(cnode))
+        nodes.append(cnode_str_hash)
+        for node in cnode.children:
+            edges.append((cnode_str_hash, hash(node_to_string(node))))
+            if visited.get(node.nid) == None:
+                stack.append(node.nid)
+    return nodes, edges
+
+def is_subgraph(cfg1, cfg2):
+    '''takes in two CFG objects, returns whether either one is a subgraph of the other'''
+    cfg1_sub_cfg2 = True
+    cfg2_sub_cfg1 = True
+    nodes1, edges1 = CFG_to_hash_graph(cfg1)
+    nodes2, edges2 = CFG_to_hash_graph(cfg2)
+    #first check if graph 1 is a subgraph of graph 2:
+    for n1 in nodes1:
+        if n1 not in nodes2:
+            cfg1_sub_cfg2 = False
+    for e in edges1:
+        if e not in edges2:
+            cfg1_sub_cfg2 = False
+    #first check if graph 2 is a subgraph of graph 1:
+    for n2 in nodes2:
+        if n2 not in nodes1:
+            cfg2_sub_cfg1 = False
+    for e in edges2:
+        if e not in edges1:
+            cfg2_sub_cfg1 = False
+    return cfg1_sub_cfg2 & cfg2_sub_cfg1
+     
+            
 class CFG:
                 
         
@@ -270,7 +321,7 @@ class CFG:
             cnode_nid = stack.pop(-1)
             visited[cnode_nid] = 1
             cnode = self.opcodes[cnode_nid]
-            func(cnode_nid)
+            func(cnode)
             for node in cnode.children:
                 if visited.get(node.nid) == None:
                     stack.append(node.nid)
@@ -289,6 +340,9 @@ class CFG:
                 if visited.get(node.nid) == None:
                     queue.append(node.nid)
         return
+    
+    # def is_subgraph(self, cfg2):
+    
 
 
 def analyze_cfg(cfg):
