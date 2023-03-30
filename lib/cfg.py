@@ -85,7 +85,7 @@ def node_to_string(node1):
     return node_str
 
 def CFG_to_hash_graph(cfg1):
-    '''helper function used by is_subgraph()'''
+    '''helper function used by is_subgraph() to take in a cfg and return a set of its nodes and edges as hashes'''
     nodes = []; edges = []
     #use iterative DFS to make a list of hashes of nodes and edges
     visited = {}
@@ -125,6 +125,62 @@ def is_subgraph(cfg1, cfg2):
             cfg2_sub_cfg1 = False
     return cfg1_sub_cfg2 & cfg2_sub_cfg1
      
+def max_subgraph(cfg1, cfg2) -> list:
+    '''takes in two CFG objects, returns the nid's of the maximum subgraph'''
+    nodes1, edges1 = CFG_to_hash_graph(cfg1)
+    nodes2, edges2 = CFG_to_hash_graph(cfg2)
+    #first check if graph 1 is a subgraph of graph 2:
+    node_map = {}; edge_map = {}; 
+    for n in nodes1:
+        node_map[n] = node_map[n] + 1 if node_map.get(n) else 1
+    for n in nodes2:
+        node_map[n] = node_map[n] + 1 if node_map.get(n) else 1
+    for e in edges1:
+        edge_map[e] = edge_map[e] + 1 if edge_map.get(e) else 1
+    for e in edges2:
+        edge_map[e] = edge_map[e] + 1 if edge_map.get(e) else 1
+    common_node_set = []; common_edge_set = []
+    for node, count in node_map.items():
+        if count == 2: #assuming a node will appear at most twice (once in each graph)
+            common_node_set.append(node)
+    for edge, count in edge_map.items():
+        if count == 2: #assuming an edge will appear at most twice (once in each graph)
+            common_edge_set.append(edge)
+    if len(common_node_set) < 1: return None 
+
+    #dfs-sweep should be performed to find the largest connected component.
+    dfs_stack = []; max_subgraph_node = None; max_subgraph_size = 0; subgraph_nid_set = []
+    dfs_stack.append(common_node_set[0])
+    visited = {}
+    for node in common_node_set: #this for-loop is probably close to O(n^5) if not worse :
+        curr_subgraph_size = 0
+        curr_path = []
+        while(len(dfs_stack)) > 0:
+            curr_node = dfs_stack.pop(0)
+            if not visited.get(curr_node):
+                curr_path.append(curr_node)
+                visited[curr_node] = 1
+                #append neighbors and increment curr_subgraph_size
+                for edge in common_edge_set:
+                    if curr_node == edge[0] and not visited.get(edge[1]):
+                        dfs_stack.append(edge[1])
+                curr_subgraph_size += 1
+        if max_subgraph_size < curr_subgraph_size:
+            max_subgraph_node = node
+            max_subgraph_size = curr_subgraph_size
+            subgraph_nid_set = curr_path
+
+    #return the nid's of the graph
+    return_path = []
+    for node in subgraph_nid_set:
+        for cfg_node in cfg1.opcodes: 
+        # print(type(cfg1.opcodes[node]))
+            if node == hash(node_to_string(cfg1.opcodes[cfg_node])):
+                return_path.append(cfg_node)
+    return return_path
+
+
+
             
 class CFG:
                 
