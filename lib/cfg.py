@@ -41,8 +41,9 @@ ops_list = [
 ];
 ops_jumps = ['POP_JUMP_IF_FALSE', 'POP_JUMP_IF_TRUE', 'JUMP_IF_TRUE_OR_POP', 'JUMP_IF_FALSE_OR_POP', 'JUMP_ABSOLUTE'] + [ opcode.opname[i] for i in opcode.hasjabs] ;
 ops_relative_jumps = ['JUMP_FORWARD'] + [ opcode.opname[i] for i in opcode.hasjrel];
-ops_setups = ['SETUP_EXCEPT', 'SETUP_FINALLY', 'SETUP_ASYNC_WITH', 'SETUP_WITH'];
+ops_setups = ['SETUP_EXCEPT', 'SETUP_FINALLY', 'SETUP_ASYNC_WITH', 'SETUP_WITH', 'FOR_ITER']; #TODO: For Iter creates an edge
 # ops_list = ops_list + 
+
 class CFGNode:
     def __init__(self, i, bid, isTarget= False, line_no = None):
         self.i = i
@@ -74,6 +75,86 @@ class CFGNode:
         n.parent.append(self)
     def get_line_no(self):
         return self.line_no
+    
+def get_last_instr(node):
+    try:
+        return node.ins[-1].i.opname
+    except:
+        return node.i.opname
+    
+def get_last_instr_nid(node):
+    try:
+        return (node.ins[-1].i.opname, node.nid)
+    except:
+        return (node.i.opname, node.nid)
+
+def get_all_dfs_paths(cfg, offset = 0, end = None, nid = False) -> list:
+    paths = []
+    stack = []; visited = {}
+    if end == None:
+        curr_key = 0
+        for k, v in cfg.opcodes.items():
+            if k > curr_key:
+                curr_key = k
+                end = v
+    stack.append((cfg.opcodes[offset], [cfg.opcodes[offset]]))
+    while len(stack) > 0:
+        cnode, cpath = stack.pop()
+        for adj in cnode.children:
+            if adj not in cpath:
+                if adj == end:
+                    paths.append(cpath + [adj])
+                else: # if visited.get(node.nid) == None:
+                    stack.append((adj, cpath + [adj]))
+                
+    for path in paths:
+        for i in range(len(path)):
+            if nid == True:
+                path[i] = get_last_instr_nid(path[i])
+            elif nid == False:
+                path[i] = get_last_instr(path[i])
+    return paths
+
+# def is_subgraph_dfs(cfg1, cfg2) -> bool:
+#     cfg1_dfs_paths = get_all_dfs_paths(cfg1, nid = True)
+#     cfg2_dfs_paths = get_all_dfs_paths(cfg2, nid = True)
+#     max_path_len = max (max([len(path) for path in cfg1_dfs_paths]), max([len(path) for path in cfg2_dfs_paths]))
+#     min_path_len = min (max([len(path) for path in cfg1_dfs_paths]), max([len(path) for path in cfg2_dfs_paths]))
+#     for i in range(min_path_len):
+#         for j in range(i):
+#             if 
+
+
+def get_isomorphic_dfs_path(cfg1, cfg2) -> list:
+    cfg1_dfs_paths = get_all_dfs_paths(cfg1)
+    cfg2_dfs_paths = get_all_dfs_paths(cfg2)
+    for path1 in cfg1_dfs_paths:
+        for path2 in cfg2_dfs_paths:
+            if path1 == path2:
+                return path1
+    return [] 
+
+def max_subgraph_dfs(cfg1, cfg2) -> list:
+    '''
+    The algorithm computes all possible dfs paths for cfg1 and cfg2 by calling cfg.get_all_dfs_paths(). 
+    Each path from cfg1 is compared to cfg2, where the maximum length DFS path between the two graphs is
+    returned.
+    '''
+    cfg1_dfs_paths = get_all_dfs_paths(cfg1)
+    cfg2_dfs_paths = get_all_dfs_paths(cfg2)
+    max_path = []
+    for path1 in cfg1_dfs_paths:
+        for path2 in cfg2_dfs_paths:
+            i = 0; curr_max_path = []
+            while i < min(len(path1), len(path2)):
+                if path1[i] == path2[i]:
+                    curr_max_path.append(path1[i])
+                i += 1
+            if len(max_path) < len(curr_max_path):
+                max_path = curr_max_path
+    return max_path
+            
+
 
 def node_to_string(node1):
     '''helper function used by CFG_to_hash_graph() and is_subgraph()'''
@@ -103,7 +184,91 @@ def CFG_to_hash_graph(cfg1):
                 stack.append(node.nid)
     return nodes, edges
 
+# def get_node_mappings(cfg) -> list:
+#     # TODO: Finish implementation
+#     '''
+#     - Goal is to create a list of python dictionaries that contains all possible node mappings by mapping node data to unique hashes
+#     - In each dictionary: Key = nid; Value = Unique Hash
+#     - Multiple mappings with be produced ONLY IF the data we are leveraging (Ex: last instruction) is the same for two+ nodes
+#     '''
+
+
+#     node_maps = [] #an array of hashmaps
+#     visited = {}; stack = []; id_to_hash_map = {}
+#     stack.append(0) #assumes there will always be a block wit nid 0
+#     while len(stack) > 0:
+#         cnode_nid = stack.pop(-1)
+#         visited[cnode_nid] = 1
+#         cnode = cfg1.opcodes[cnode_nid]
+#         cnode_str_hash = hash(node_to_string(cnode)) 
+#     return
+
+def CFG_to_hash_graph_list(cfg1) -> list:
+    '''helper function used by is_subgraph() to take in a cfg and return a set of its nodes and edges as hashes
+    conflict resolution for nodes with the same instructions/data within the same graph
+    '''
+    used_hashes = {}
+    #use iterative DFS to make a list of hashes of nodes and edges
+    done = False
+    while done == False:
+        done = True
+        nodes = []; edges = []
+        visited = {}; stack = []; id_to_hash_map = {}
+        stack.append(0) #assumes there will always be a block wit nid 0
+        while len(stack) > 0:
+            cnode_nid = stack.pop(-1)
+            visited[cnode_nid] = 1
+            cnode = cfg1.opcodes[cnode_nid]
+            cnode_str_hash = hash(node_to_string(cnode))
+            if used_hashes.get(cnode_str_hash) != None:
+                done = False
+                #then resolve the conflict
+                cnode_str_hash += used_hashes[cnode_str_hash]
+                nodes.append(cnode_str_hash)
+                used_hashes[cnode_str_hash] += 1
+            else:
+                used_hashes[cnode_str_hash] = 1
+                nodes.append(cnode_str_hash)
+            id_to_hash_map[cnode_nid] = cnode_str_hash
+            for node in cnode.children:
+                edges.append((cnode_str_hash, hash(node_to_string(node))))
+                if visited.get(node.nid) == None:
+                    stack.append(node.nid)
+    return nodes, edges
+
 def is_subgraph(cfg1, cfg2):
+    '''takes in two CFG objects, returns whether either one is a subgraph of the other'''
+    cfg1_sub_cfg2 = True
+    cfg2_sub_cfg1 = True
+    nodes1, edges1 = CFG_to_hash_graph(cfg1)
+    nodes2, edges2 = CFG_to_hash_graph(cfg2)
+    #first check if graph 1 is a subgraph of graph 2:
+    for n1 in nodes1:
+        if n1 not in nodes2:
+            cfg1_sub_cfg2 = False
+    for e in edges1:
+        if e not in edges2:
+            cfg1_sub_cfg2 = False
+    #first check if graph 2 is a subgraph of graph 1:
+    for n2 in nodes2:
+        if n2 not in nodes1:
+            cfg2_sub_cfg1 = False
+    for e in edges2:
+        if e not in edges1:
+            cfg2_sub_cfg1 = False
+    return cfg1_sub_cfg2 & cfg2_sub_cfg1
+
+def is_subgraph_last_instruction(cfg1, cfg2):
+    '''
+    need a new method:
+    do an exponential recursive dfs that adds a recursive call IFF a
+    valid, no-visited adjacent node is present
+    - in theory this would be a dangerously recursive exponential algorithm
+    - in practice, it is assumed that it will behave fine in almost all test
+      cases through its use of heuristics
+    Approach: DFS-sweep algorithm as the base that uses a helper function
+    - will likely
+    '''
     '''takes in two CFG objects, returns whether either one is a subgraph of the other'''
     cfg1_sub_cfg2 = True
     cfg2_sub_cfg1 = True
