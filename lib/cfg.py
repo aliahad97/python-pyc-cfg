@@ -89,8 +89,11 @@ def get_last_instr_nid(node):
         return (node.i.opname, node.nid)
 
 def get_all_dfs_paths(cfg, offset = 0, end = None, nid = False) -> list:
-    paths = []
+    '''returns all DFS paths given a CFG object. Optional parameters include instruction offset, end node, and whether nid's should be returned with path'''
+    paths = [[cfg.opcodes[offset]]] #initialize return value with the first node
     stack = []; visited = {}
+    if offset % 2 != 0:
+        offset = offset - 1 if offset > 0 else 0 #offset will always be a positive even integer
     if end == None:
         curr_key = 0
         for k, v in cfg.opcodes.items():
@@ -102,10 +105,15 @@ def get_all_dfs_paths(cfg, offset = 0, end = None, nid = False) -> list:
         cnode, cpath = stack.pop()
         for adj in cnode.children:
             if adj not in cpath:
-                if adj == end:
-                    paths.append(cpath + [adj])
-                else: # if visited.get(node.nid) == None:
+                if adj != end:
                     stack.append((adj, cpath + [adj]))
+                if cpath + [adj] not in paths: 
+                    ''' 
+                    Do not add the path if already in the path set
+                    Would implement it with a built-in python set, but lists are not hashable.
+                    If running time is a concern, the complexity can be easily reduced using hashmaps
+                    '''
+                    paths.append((cpath + [adj]).copy())
                 
     for path in paths:
         for i in range(len(path)):
@@ -113,6 +121,15 @@ def get_all_dfs_paths(cfg, offset = 0, end = None, nid = False) -> list:
                 path[i] = get_last_instr_nid(path[i])
             elif nid == False:
                 path[i] = get_last_instr(path[i])
+    paths.sort(key = lambda x: len(x))
+    return paths
+
+def get_all_dfs_paths_all_offsets(cfg) -> list:
+    # print(cfg.opcodes.keys())
+    paths = []
+    for nid in cfg.opcodes.keys():
+        paths += get_all_dfs_paths(cfg, offset = nid)
+    print(f"\nNUM PATHS: {len(paths)}\n")
     return paths
 
 # def is_subgraph_dfs(cfg1, cfg2) -> bool:
@@ -123,6 +140,16 @@ def get_all_dfs_paths(cfg, offset = 0, end = None, nid = False) -> list:
 #     for i in range(min_path_len):
 #         for j in range(i):
 #             if 
+
+def is_subgraph_dfs_path(cfg1, cfg1_offset, cfg2, cfg2_offset) -> bool:
+    #TODO: adapt this to work to find subgraphs by testing all possible offsets
+    "if the graphs are the same, then they should have all of the same DFS paths"
+    cfg1_dfs_paths = get_all_dfs_paths(cfg1, cfg1_offset)
+    cfg2_dfs_paths = get_all_dfs_paths(cfg2, cfg2_offset)
+    for path in cfg1_dfs_paths:
+        if path in cfg2_dfs_paths:
+            cfg2_dfs_paths.remove(path)
+    return len(cfg2_dfs_paths) == 0
 
 
 def get_isomorphic_dfs_path(cfg1, cfg2) -> list:
